@@ -1,9 +1,28 @@
-nepse-auto-scanner
+name: NEPSE Scanner
 
-/ main.ymlname: NEPSE Scanner on: workflow dispatch:
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * 1-5"
 
-schedule: - cron: "0 9 * * 1-5" jobs: scan: runs-on: ubuntu-latest
+jobs:
+  scan:
+    runs-on: ubuntu-latest
 
-steps: - name: Checkout repository uses: actions
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-checkout@v4 - name: Setup Python uses: actions /
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run NEPSE Scanner
+        run: |
+          python scanner.py
