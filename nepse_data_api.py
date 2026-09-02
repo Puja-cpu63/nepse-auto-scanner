@@ -1,35 +1,47 @@
-
-import requests
-
-BASE = "https://nepseman-api-production.up.railway.app/api/v1"
+import asyncio
+from nepseman_api import NepseClient
 
 
 class Nepse:
     def __init__(self, *args, **kwargs):
-        self.session = requests.Session()
         self.security_map = None
 
-    def get_security_list(self):
-        r = self.session.get(
-            f"{BASE}/securities/list",
-            timeout=30
-        )
-        r.raise_for_status()
-        data = r.json()
+    def _run(self, coro):
+        return asyncio.run(coro)
 
-        items = data.get("data", data) if isinstance(data, dict) else data
+    def get_security_list(self):
+        async def fetch():
+            async with NepseClient() as client:
+                return await client.security_list()
+
+        data = self._run(fetch())
 
         self.security_map = {}
+
+        if isinstance(data, dict):
+            items = data.get("data", data.get("content", []))
+        else:
+            items = data
+
         result = []
 
-        for x in items:
-            if not isinstance(x, dict):
+        for item in items:
+            if not isinstance(item, dict):
                 continue
 
-            symbol = x.get("symbol") or x.get("stockSymbol") or x.get("ticker")
-            sid = x.get("id") or x.get("securityId") or x.get("security_id")
+            sid = (
+                item.get("id")
+                or item.get("securityId")
+                or item.get("security_id")
+            )
 
-            if symbol and sid is not None:
+            symbol = (
+                item.get("symbol")
+                or item.get("stockSymbol")
+                or item.get("ticker")
+            )
+
+            if sid is not None and symbol:
                 self.security_map[str(sid)] = symbol
                 result.append({
                     "symbol": symbol,
@@ -38,7 +50,13 @@ class Nepse:
 
         return result
 
-    def get_historical_chart(self, security_id, start_date=None, end_date=None, **kwargs):
+    def get_historical_chart(
+        self,
+        security_id,
+        start_date=None,
+        end_date=None,
+        **kwargs
+    ):
         if self.security_map is None:
             self.get_security_list()
 
@@ -47,23 +65,26 @@ class Nepse:
         if not symbol:
             return []
 
-        params = {"size": 500}
+        async def fetch():
+            async with NepseClient() as client:
+                return await client.price_history(
+                    symbol,
+                    start_date=start_date,
+                    end_date=end_date,
+                    size=500
+                )
 
-        if start_date:
-            params["start_date"] = start_date
-
-        if end_date:
-            params["end_date"] = end_date
-
-        r = self.session.get(
-            f"{BASE}/securities/{symbol}/history",
-            params=params,
-            timeout=30
-        )
-        r.raise_for_status()
-
-        data = r.json()
-        return data.get("data", data) if isinstance(data, dict) else data
+        return self._run(fetch())
 
     def get_nepse_index(self):
-        return {}
+        async def fetch():
+            async with NepseClient() as client:
+                return await client.nepse_index()
+
+        try:
+            return self._run(fetch())
+        except Exception:
+            return {}
+
+
+        
