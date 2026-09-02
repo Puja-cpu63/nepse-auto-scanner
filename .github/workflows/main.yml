@@ -25,3 +25,8 @@ jobs:
       - name: Run NEPSE Scanner
         run: |
           python scanner.py
+        - name: Send Telegram Notification
+          env:
+            TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+            TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          run: python telegram_notify.py
